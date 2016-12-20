@@ -3,10 +3,13 @@ package com.htmlparser.parser;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.CharacterStyle;
+import android.text.style.ForegroundColorSpan;
 import android.text.style.ParagraphStyle;
 import android.util.Log;
 
 import com.htmlparser.Constants;
+import com.htmlparser.span.CustomUrlSpan;
+import com.htmlparser.span.FontColorSpan;
 
 import org.ccil.cowan.tagsoup.jaxp.SAXParserImpl;
 import org.xml.sax.InputSource;
@@ -60,6 +63,41 @@ public class HtmlParser {
     }
 
     private Spanned changeSpannableAfterOpen(Spanned result) {
+        result = removeInvisibleSymbols(result);
+        result = removeForeignSpansFromLinkSpan(result);
+        return result;
+    }
+
+    private Spanned removeForeignSpansFromLinkSpan(Spanned result) {
+        SpannableStringBuilder ssb = new SpannableStringBuilder(result);
+        CustomUrlSpan[] spans = ssb.getSpans(0, ssb.length(), CustomUrlSpan.class);
+        for(CustomUrlSpan span : spans){
+            int start = ssb.getSpanStart(span);
+            int end = ssb.getSpanEnd(span);
+            FontColorSpan[] foregroundColorSpans = ssb.getSpans(start, end, FontColorSpan.class);
+            for(FontColorSpan colorSpan : foregroundColorSpans){
+                int foregroundColorStart = ssb.getSpanStart(colorSpan);
+                int foregroundColorEnd = ssb.getSpanEnd(colorSpan);
+                if(foregroundColorStart < start ||end < foregroundColorEnd){
+                    if(foregroundColorStart < start){
+                        FontColorSpan newSpan = new FontColorSpan(colorSpan.getForegroundColor());
+                        ssb.setSpan(newSpan, foregroundColorStart, start, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
+                    if(end < foregroundColorEnd){
+                        FontColorSpan newSpan = new FontColorSpan(colorSpan.getForegroundColor());
+                        ssb.setSpan(newSpan, end, foregroundColorEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                    }
+                    ssb.removeSpan(colorSpan);
+
+                }
+            }
+        }
+        return ssb;
+
+    }
+
+    private Spanned removeInvisibleSymbols(Spanned result) {
         SpannableStringBuilder ssb = new SpannableStringBuilder(result);
         for (int i = 0; i < ssb.length(); ) {
             if (ssb.charAt(i) == Constants.INVISIBLE_SYMBOL) {
@@ -68,8 +106,7 @@ public class HtmlParser {
                 i++;
             }
         }
-
-        return result;
+        return ssb;
     }
 
 }
